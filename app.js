@@ -28,6 +28,9 @@ app.use((err, req, res, next) => {
     next();
 });
 
+
+app.use('/user', require("./routes/userRoutes"));
+
 const hostName = process.env.HOST_NAME || "localhost";
 const port = process.env.PORT || 3002;
 
