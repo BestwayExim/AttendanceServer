@@ -28,6 +28,10 @@ app.use((err, req, res, next) => {
     next();
 });
 
+const today = new Date(); // Get today's date
+const todayStr = today.toISOString().split('T')[0];
+console.log(todayStr)
+
 
 app.use('/user', require("./routes/userRoutes"));
 
