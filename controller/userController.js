@@ -30,7 +30,7 @@ const login = async (req, res) => {
 const applyForLateComing = async (req, res) => {
     try {
 
-        const user = req?.user?._id || "66d6fbc16792b74896bbcdcc";
+        const user = req?.user?._id;
         let { date, time, reason } = req.body;
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         const timeRegex = /^\d{2}:\d{2}:\d{2}$/;
@@ -97,13 +97,89 @@ const applyForLateComing = async (req, res) => {
 
 const getAttendanceData = async (req, res) => {
     try {
-        const user = req?.user?._id;
+        const user = req?.user?._id ;
         const today = new Date();
-        const attendanceFilterMonth = today.getMonth() + 1;
-        const attendanceReportFilterMonth = today.getMonth() + 1;
+        const attendanceFilterMonth = req.query.attendanceFilterMonth || today.getMonth() + 1;
+        const attendanceReportFilterMonth = req.query.attendanceReportFilterMonth || today.getMonth() + 1;
         const todayStr = today.toISOString().split('T')[0];
 
 
+        // attendance Report
+
+        const presentDays = await Attendance.countDocuments({
+            userId: user,
+            isLeave: false,
+            date: {
+                $gte: new Date(today.getFullYear(), attendanceReportFilterMonth - 1, 1),
+                $lt: new Date(today.getFullYear(), attendanceReportFilterMonth + 1, 1)
+            }
+        });
+
+        const absentDays = await Attendance.countDocuments({
+            userId: user,
+            isLeave: true,
+            date: {
+                $gte: new Date(today.getFullYear(), attendanceReportFilterMonth - 1, 1),
+                $lt: new Date(today.getFullYear(), attendanceReportFilterMonth + 1, 1)
+            }
+        });
+
+        const lateArrival = await LateComing.countDocuments({
+            userId: user,
+            date: {
+                $gte: new Date(today.getFullYear(), attendanceReportFilterMonth - 1, 1),
+                $lt: new Date(today.getFullYear(), attendanceReportFilterMonth + 1, 1)
+            }
+        });
+
+        const leaveDays = 0;
+
+        let attendanceReport = {
+            presentDays,
+            absentDays,
+            lateArrival,
+            leaveDays
+        };
+
+        // -----------------------------------------------------------
+        // attendance filtering  - calendar showing the  attendance of the user
+        let presentDaysArray = [];
+        let absentDaysArray = [];
+        let publicHolidays = [];
+
+        presentDaysArray = await Attendance.find({
+            userId: user,
+            isLeave: false,
+            isCheckedIn: true,
+            date: {
+                $gte: new Date(today.getFullYear(), attendanceFilterMonth - 1, 1),
+                $lt: new Date(today.getFullYear(), attendanceFilterMonth + 1, 1)
+            }
+        })
+            .select('date')
+
+
+        absentDaysArray = await Attendance.find({
+            userId: user,
+            isLeave: true,
+            date: {
+                $gte: new Date(today.getFullYear(), attendanceFilterMonth - 1, 1),
+                $lt: new Date(today.getFullYear(), attendanceFilterMonth + 1, 1)
+            }
+        })
+            .select('date');
+
+
+        publicHolidays = getWeekendDays(attendanceFilterMonth - 1, today.getFullYear());
+
+        const calendarData = {
+            presentDaysArray,
+            absentDaysArray,
+            publicHolidays
+        };
+
+
+        // ------------------------------------------------------------------------
         // work start and end time
         const workStartTime = new Date(process.env.WORKING_START);
         const workEndTime = new Date(process.env.WORKING_END);
@@ -126,7 +202,10 @@ const getAttendanceData = async (req, res) => {
             checkInTime,
             checkOutTime,
             workStartTime,
-            workEndTime
+            workEndTime,
+            attendanceReport,
+            calendarData
+
         })
 
 
@@ -272,4 +351,25 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in km
+}
+
+
+
+function getWeekendDays(year, month) {
+    const weekendDays = [];
+    const date = new Date(year, month - 1, 1);
+
+    // Loop through all days of the month
+    while (date.getMonth() === month - 1) {
+        const dayOfWeek = date.getDay();
+
+        // Check if it's Saturday (6) or Sunday (0)
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            weekendDays.push(new Date(date));
+        }
+
+        date.setDate(date.getDate() + 1);
+    }
+
+    return weekendDays;
 }
