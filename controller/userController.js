@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { generateToken } = require('../jwt/generate')
 const LateComing = require('../schema/lateComing')
 const Attendance = require('../schema/attendance')
+const { lateComing, applyForLeave, applyForWorkFromHome } = require('../handler/leaves')
 
 const login = async (req, res) => {
     try {
@@ -27,65 +28,22 @@ const login = async (req, res) => {
     }
 }
 
-const applyForLateComing = async (req, res) => {
+const applyForLeaves = async (req, res) => {
     try {
 
-        const user = req?.user?._id;
-        let { date, time, reason } = req.body;
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        const timeRegex = /^\d{2}:\d{2}:\d{2}$/;
-
-        if (!date || !time || !reason) {
-            return res.status(400).json({ message: "Date and Time are required" });
+        const { leaveType } = req.body;
+        const leaveEnum = ['lateComing', 'workFromHome', 'leave']
+        if (!leaveType || !leaveEnum.includes(leaveType)) {
+            return res.status(400).json({ message: "Invalid leave type" });
         }
 
-        if (!dateRegex.test(date)) {
-            return res.status(400).json({ message: "Invalid Date format. Use YYYY-MM-DD." });
+        if (leaveType == 'lateComing') {
+            await lateComing(req, res)
+        } else if (leaveType == 'leave') {
+            await applyForLeave(req, res)
+        } else if (leaveType == 'workFromHome') {
+            await applyForWorkFromHome(req, res)
         }
-
-        if (!timeRegex.test(time)) {
-            return res.status(400).json({ message: "Invalid Time format. Use HH:MM:SS." });
-        }
-
-        const parsedDate = new Date(date);
-
-        const totalLateComingPerMonth = await LateComing.countDocuments({
-            userId: user,
-            date: {
-                $gte: new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1),
-                $lt: new Date(parsedDate.getFullYear(), parsedDate.getMonth() + 1, 1)
-            }
-        });
-
-        if (totalLateComingPerMonth >= 4) {
-            return res.status(400).json({ message: "You have already applied for Total late coming for this month" });
-        }
-
-        if (isNaN(parsedDate.getTime())) {
-            return res.status(400).json({ message: "Invalid Date value." });
-        }
-
-        const year = parsedDate.getFullYear();
-        const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(parsedDate.getDate()).padStart(2, '0');
-        const dateTimeString = `${year}-${month}-${day}T${time}`;
-
-
-        const arrivalDateTime = new Date(dateTimeString);
-        if (isNaN(arrivalDateTime.getTime())) {
-            return res.status(400).json({ message: "Invalid Date and Time values." });
-        }
-
-        const newLateComing = new LateComing({
-            userId: user,
-            date: parsedDate.toISOString().split('T')[0],
-            arrivalTime: arrivalDateTime,
-            reason: reason
-        });
-        await newLateComing.save();
-
-
-        return res.status(200).json({ message: "Late Coming Applied Successfully" });
 
     } catch (error) {
         if (error.name === 'ValidationError') {
@@ -97,7 +55,7 @@ const applyForLateComing = async (req, res) => {
 
 const getAttendanceData = async (req, res) => {
     try {
-        const user = req?.user?._id ;
+        const user = req?.user?._id;
         const today = new Date();
         const attendanceFilterMonth = req.query.attendanceFilterMonth || today.getMonth() + 1;
         const attendanceReportFilterMonth = req.query.attendanceReportFilterMonth || today.getMonth() + 1;
@@ -331,7 +289,7 @@ const checkInCheckOut = async (req, res) => {
 }
 
 module.exports = {
-    login, applyForLateComing, getAttendanceData, checkInCheckOut
+    login, applyForLeaves, getAttendanceData, checkInCheckOut
 }
 
 

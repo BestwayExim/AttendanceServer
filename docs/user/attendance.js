@@ -75,9 +75,9 @@
 
 /**
  * @openapi
- * /user/apply-for-late-coming:
+ * /user/apply-for-leaves:
  *   post:
- *     summary: Apply for late coming with specified date time and reason
+ *     summary: Apply for various types of leaves including late coming, work from home, and regular leave
  *     tags: [Attendance]
  *     requestBody:
  *       required: true
@@ -86,23 +86,38 @@
  *           schema:
  *             type: object
  *             properties:
+ *               leaveType:
+ *                 type: string
+ *                 description: The type of leave being applied for
+ *                 enum: [lateComing, workFromHome, leave]
+ *                 example: 'lateComing'
  *               date:
  *                 type: string
  *                 format: date
- *                 description: The date of the late coming in `YYYY-MM-DD` format
+ *                 description: The date for late coming in YYYY-MM-DD format (required if leaveType is lateComing)
  *                 example: '2024-09-13'
  *               time:
  *                 type: string
  *                 format: time
- *                 description: The time of arrival in `HH:MM:SS` format
+ *                 description: The time of arrival for late coming in HH:MM:SS format (required if leaveType is lateComing)
  *                 example: '09:30:00'
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *                 description: The start date for leave (required if leaveType is leave or workFromHome)
+ *                 example: '2024-09-15'
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *                 description: The end date for leave (required if leaveType is leave or workFromHome)
+ *                 example: '2024-09-20'
  *               reason:
  *                 type: string
- *                 description: The reason for late coming
+ *                 description: The reason for the leave or late coming
  *                 example: 'Traffic jam'
  *     responses:
  *       200:
- *         description: Late coming application was successful
+ *         description: Leave application was successful
  *         content:
  *           application/json:
  *             schema:
@@ -111,9 +126,9 @@
  *                 message:
  *                   type: string
  *                   description: Success message indicating successful application
- *                   example: 'Late Coming Applied Successfully'
+ *                   example: 'Leave Applied Successfully'
  *       400:
- *         description: Bad request due to validation errors or exceeding monthly limit
+ *         description: Bad request due to validation errors or exceeding limits
  *         content:
  *           application/json:
  *             schema:
@@ -121,8 +136,8 @@
  *               properties:
  *                 message:
  *                   type: string
- *                   description: Error message describing the validation issue or monthly limit
- *                   example: 'Date and Time are required '
+ *                   description: Error message describing the validation issue or limits
+ *                   example: 'Invalid leave type'
  *       500:
  *         description: Internal server error
  *         content:
